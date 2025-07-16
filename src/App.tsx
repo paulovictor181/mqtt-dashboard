@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import mqtt from "mqtt";
+import { Client } from "@stomp/stompjs";
 import "./App.css";
 
-// Interface para descrever a forma do objeto de dados do drone
+// A interface não precisa mais da propriedade 'source'
 interface DroneData {
   id: number;
   pressao: number;
@@ -14,82 +15,128 @@ interface DroneData {
   posicao: string;
 }
 
-// Tipo para o estado que armazena os dados mais recentes de cada região
 type LatestDataState = {
   [key: string]: DroneData | null;
 };
 
+type ConnectionStatusState = {
+  mqtt: string;
+  rabbitmq: string;
+};
+
+// Componente reutilizável para o Histórico para evitar repetição de código
+const HistoryList = ({
+  title,
+  history,
+}: {
+  title: string;
+  history: DroneData[];
+}) => (
+  <div className="history-container">
+    <h2>{title}</h2>
+    {history.length > 0 ? (
+      <ul className="history-list">
+        {history.map((msg) => (
+          <li key={msg.id}>
+            <span>
+              <strong>Região:</strong> {msg.posicao}
+            </span>
+            <span>
+              <strong>Temp:</strong> {msg.temperatura.toFixed(1)}°C
+            </span>
+            <span>
+              <strong>Umidade:</strong> {msg.umidade.toFixed(1)}%
+            </span>
+            <span className="timestamp">
+              {new Date(msg.id).toLocaleTimeString()}
+            </span>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p>Nenhuma atualização recebida ainda.</p>
+    )}
+  </div>
+);
+
 function App() {
   const [connectionStatus, setConnectionStatus] =
-    useState<string>("Desconectado");
+    useState<ConnectionStatusState>({
+      mqtt: "Desconectado",
+      rabbitmq: "Desconectado",
+    });
 
-  // Estado para os painéis principais: armazena o último dado de cada região
-  const [latestData, setLatestData] = useState<LatestDataState>({
+  // --- Estados separados para MQTT ---
+  const [latestMqttData, setLatestMqttData] = useState<LatestDataState>({
     norte: null,
     sul: null,
     leste: null,
     oeste: null,
   });
+  const [mqttHistory, setMqttHistory] = useState<DroneData[]>([]);
 
-  // Estado para a lista de histórico: armazena as últimas 7 mensagens
-  const [history, setHistory] = useState<DroneData[]>([]);
+  // --- Estados separados para RabbitMQ ---
+  const [latestRabbitMqData, setLatestRabbitMqData] = useState<LatestDataState>(
+    {
+      norte: null,
+      sul: null,
+      leste: null,
+      oeste: null,
+    }
+  );
+  const [rabbitMqHistory, setRabbitMqHistory] = useState<DroneData[]>([]);
 
   useEffect(() => {
-    const brokerUrl = "ws://broker.hivemq.com:8000/mqtt";
-    const client = mqtt.connect(brokerUrl);
+    // --- Conexão MQTT ---
+    const mqttClient = mqtt.connect("ws://broker.hivemq.com:8000/mqtt");
 
-    client.on("connect", () => {
-      setConnectionStatus("Conectado");
-      client.subscribe("mqtt/dadosClima", { qos: 0 }, (err) => {
-        if (err) {
-          console.error("Falha ao assinar o tópico:", err);
-        }
-      });
+    mqttClient.on("connect", () => {
+      setConnectionStatus((prev) => ({ ...prev, mqtt: "Conectado" }));
+      mqttClient.subscribe("mqtt/dadosClima", { qos: 0 });
     });
 
-    client.on("message", (_topic: string, payload: Buffer) => {
-      try {
-        const messageData = JSON.parse(payload.toString());
+    mqttClient.on("message", (_topic: string, payload: Buffer) => {
+      const messageData = JSON.parse(payload.toString());
+      const newMessage: DroneData = { id: Date.now(), ...messageData };
 
-        // Cria um objeto de dados completo com um ID único
-        const newMessage: DroneData = {
-          id: Date.now(), // ID baseado no timestamp para garantir unicidade
-          ...messageData,
-        };
+      // Atualiza os estados do MQTT
+      setLatestMqttData((prev) => ({
+        ...prev,
+        [newMessage.posicao]: newMessage,
+      }));
+      setMqttHistory((prev) => [newMessage, ...prev].slice(0, 7));
+    });
 
-        // 1. Atualiza o painel da região específica com os dados mais recentes
-        setLatestData((prev) => ({
+    // ... (outros handlers do mqttClient)
+
+    // --- Conexão RabbitMQ ---
+    const stompClient = new Client({
+      brokerURL: "ws://localhost:15674/ws",
+      connectHeaders: { login: "guest", passcode: "guest" },
+    });
+
+    stompClient.onConnect = () => {
+      setConnectionStatus((prev) => ({ ...prev, rabbitmq: "Conectado" }));
+      stompClient.subscribe("/queue/drones", (message) => {
+        const messageData = JSON.parse(message.body);
+        const newMessage: DroneData = { id: Date.now(), ...messageData };
+
+        // Atualiza os estados do RabbitMQ
+        setLatestRabbitMqData((prev) => ({
           ...prev,
           [newMessage.posicao]: newMessage,
         }));
+        setRabbitMqHistory((prev) => [newMessage, ...prev].slice(0, 7));
+      });
+    };
 
-        // 2. Adiciona a nova mensagem ao histórico e mantém o tamanho máximo de 7
-        setHistory((prevHistory) => {
-          const updatedHistory = [newMessage, ...prevHistory];
-          if (updatedHistory.length > 7) {
-            updatedHistory.pop(); // Remove o item mais antigo
-          }
-          return updatedHistory;
-        });
-      } catch (error) {
-        console.error("Erro ao processar a mensagem JSON:", error);
-      }
-    });
+    // ... (outros handlers do stompClient)
 
-    client.on("error", (err: Error) => {
-      console.error("Erro de conexão:", err);
-      setConnectionStatus(`Erro: ${err.message}`);
-      client.end();
-    });
-
-    client.on("close", () => {
-      setConnectionStatus("Desconectado");
-    });
+    stompClient.activate();
 
     return () => {
-      if (client) {
-        client.end();
-      }
+      if (mqttClient) mqttClient.end();
+      if (stompClient) stompClient.deactivate();
     };
   }, []);
 
@@ -98,69 +145,83 @@ function App() {
       <header className="dashboard-header">
         <h1>Dashboard de Drones</h1>
         <p>
-          Status da Conexão: <strong>{connectionStatus}</strong>
+          Status MQTT: <strong>{connectionStatus.mqtt}</strong> | Status
+          RabbitMQ: <strong>{connectionStatus.rabbitmq}</strong>
         </p>
       </header>
 
-      <main>
-        {/* Seção para os painéis de dados mais recentes */}
-        <h2>Últimos Dados por Região</h2>
-        <div className="panels-container">
-          {Object.keys(latestData).map((region) => (
-            <div key={region} className="data-panel">
-              <h3>{region}</h3>
-              {latestData[region] ? (
-                <div className="panel-content">
-                  <p>
-                    <strong>Temp:</strong>{" "}
-                    {latestData[region]?.temperatura.toFixed(1)}°C
-                  </p>
-                  <p>
-                    <strong>Umidade:</strong>{" "}
-                    {latestData[region]?.umidade.toFixed(1)}%
-                  </p>
-                  <p>
-                    <strong>Pressão:</strong>{" "}
-                    {latestData[region]?.pressao.toFixed(1)}hPa
-                  </p>
-                  <p>
-                    <strong>Radiação:</strong>{" "}
-                    {latestData[region]?.radiacao.toFixed(1)}µSv/h
-                  </p>
-                </div>
-              ) : (
-                <p className="waiting-data">Aguardando dados...</p>
-              )}
-            </div>
-          ))}
+      {/* Container principal dividido em duas colunas */}
+      <main className="main-grid">
+        {/* Coluna MQTT */}
+        <div className="source-column">
+          <h2>Dados MQTT</h2>
+          <div className="panels-container">
+            {Object.keys(latestMqttData).map((region) => (
+              <div key={region} className="data-panel mqtt-panel">
+                <h3>{region}</h3>
+                {latestMqttData[region] ? (
+                  <div className="panel-content">
+                    {/* VERSÃO COMPLETA ABAIXO */}
+                    <p>
+                      <strong>Temp:</strong>{" "}
+                      {latestMqttData[region]?.temperatura.toFixed(1)}°C
+                    </p>
+                    <p>
+                      <strong>Umidade:</strong>{" "}
+                      {latestMqttData[region]?.umidade.toFixed(1)}%
+                    </p>
+                    <p>
+                      <strong>Pressão:</strong>{" "}
+                      {latestMqttData[region]?.pressao.toFixed(1)}hPa
+                    </p>
+                    <p>
+                      <strong>Radiação:</strong>{" "}
+                      {latestMqttData[region]?.radiacao.toFixed(1)}µSv/h
+                    </p>
+                  </div>
+                ) : (
+                  <p className="waiting-data">Aguardando...</p>
+                )}
+              </div>
+            ))}
+          </div>
+          <HistoryList title="Histórico MQTT" history={mqttHistory} />
         </div>
 
-        {/* Seção para o histórico de atualizações */}
-        <div className="history-container">
-          <h2>Últimas 7 Atualizações</h2>
-          {history.length > 0 ? (
-            <ul className="history-list">
-              {history.map((msg) => (
-                <li key={msg.id}>
-                  <span>
-                    <strong>Região:</strong> {msg.posicao}
-                  </span>
-                  <span>
-                    <strong>Temp:</strong> {msg.temperatura.toFixed(1)}°C
-                  </span>
-                  <span>
-                    <strong>Umidade:</strong> {msg.umidade.toFixed(1)}%
-                  </span>
-                  {/* Converte o timestamp para uma string de hora legível */}
-                  <span className="timestamp">
-                    {new Date(msg.id).toLocaleTimeString()}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>Nenhuma atualização recebida ainda.</p>
-          )}
+        {/* Coluna RabbitMQ */}
+        <div className="source-column">
+          <h2>Dados RabbitMQ</h2>
+          <div className="panels-container">
+            {Object.keys(latestRabbitMqData).map((region) => (
+              <div key={region} className="data-panel rabbitmq-panel">
+                <h3>{region}</h3>
+                {latestRabbitMqData[region] ? (
+                  <div className="panel-content">
+                    {/* VERSÃO COMPLETA ABAIXO */}
+                    <p>
+                      <strong>Temp:</strong>{" "}
+                      {latestRabbitMqData[region]?.temperatura.toFixed(1)}°C
+                    </p>
+                    <p>
+                      <strong>Umidade:</strong>{" "}
+                      {latestRabbitMqData[region]?.umidade.toFixed(1)}%
+                    </p>
+                    <p>
+                      <strong>Pressão:</strong>{" "}
+                      {latestRabbitMqData[region]?.pressao.toFixed(1)}hPa
+                    </p>
+                    <p>
+                      <strong>Radiação:</strong>{" "}
+                      {latestRabbitMqData[region]?.radiacao.toFixed(1)}µSv/h
+                    </p>
+                  </div>
+                ) : (
+                  <p className="waiting-data">Aguardando...</p>
+                )}
+              </div>
+            ))}
+          </div>
+          <HistoryList title="Histórico RabbitMQ" history={rabbitMqHistory} />
         </div>
       </main>
     </div>
