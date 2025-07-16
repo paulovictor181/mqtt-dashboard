@@ -1,3 +1,5 @@
+/* App.css com melhorias sugeridas */
+
 /* Remove o CSS padrão do Vite para começar do zero */
 #root {
   max-width: 1280px;
@@ -12,71 +14,97 @@ body {
     Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
   background-color: #f0f2f5;
   color: #333;
+  line-height: 1.6; /* Melhora a legibilidade */
 }
 
 .dashboard-header {
-  background-color: #282c34;
-  padding: 20px;
+  background: linear-gradient(135deg, #282c34, #3a3f47); /* Gradiente sutil */
+  padding: 2rem; /* Mais espaçamento */
   color: white;
-  margin-bottom: 2rem;
-  border-radius: 8px;
+  margin-bottom: 2.5rem; /* Mais espaço */
+  border-radius: 12px; /* Bordas mais arredondadas */
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* Sombra mais pronunciada */
 }
 
 .dashboard-header h1 {
+  margin: 0 0 0.5rem 0; /* Espaço abaixo do título */
+  font-size: 2.5em; /* Título maior */
+  font-weight: 700; /* Mais peso na fonte */
+}
+
+.dashboard-header p {
   margin: 0;
-  font-size: 2em;
+  font-size: 1.1em;
+  opacity: 0.9; /* Leve transparência para o status */
 }
 
 main h2 {
   color: #282c34;
-  margin-top: 2rem;
-  margin-bottom: 1rem;
+  margin-top: 2.5rem;
+  margin-bottom: 1.5rem;
+  text-align: left; /* Alinha os títulos das seções à esquerda */
+  font-size: 1.8em;
 }
 
 /* Container para os 4 painéis de região */
+/* Esta regra já coloca os cards lado a lado de forma responsiva */
 .panels-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
+  gap: 1rem; /* Aumenta o espaçamento */
 }
 
 .data-panel {
   background-color: white;
   padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 12px; /* Bordas mais arredondadas */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* Sombra mais suave */
   text-align: left;
+  transition: transform 0.3s ease, box-shadow 0.3s ease; /* Transição suave */
+  border-top: 4px solid #007bff; /* Destaque de cor no topo */
+}
+
+/* Efeito de hover para interatividade */
+.data-panel:hover {
+  transform: translateY(-5px); /* Eleva o card ao passar o mouse */
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12); /* Sombra mais forte no hover */
 }
 
 .data-panel h3 {
   margin-top: 0;
-  color: #007bff;
+  color: #282c34; /* Cor mais escura para o título do card */
   border-bottom: 2px solid #eee;
-  padding-bottom: 0.5rem;
-  margin-bottom: 1rem;
+  padding-bottom: 0.75rem; /* Mais espaço no padding */
+  margin-bottom: 1.25rem; /* Mais espaço abaixo do título */
+  font-size: 1.4em;
 }
 
 .panel-content p {
-  margin: 0.5rem 0;
+  margin: 0.75rem 0; /* Mais espaçamento vertical */
   font-size: 1rem;
+  display: flex; /* Alinha o label e o valor */
+  justify-content: space-between;
 }
 
 .panel-content strong {
   color: #555;
+  margin-right: 0.5rem; /* Espaço entre o label e o valor */
 }
 
 .waiting-data {
   color: #999;
   font-style: italic;
+  padding: 2rem 0; /* Centraliza verticalmente a mensagem */
+  text-align: center;
 }
 
 /* Container para o histórico */
 .history-container {
-  margin-top: 2rem;
+  margin-top: 3rem;
   background-color: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  padding: 2rem; /* Mais espaçamento interno */
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .history-list {
@@ -88,8 +116,14 @@ main h2 {
 .history-list li {
   display: flex;
   justify-content: space-between;
-  padding: 0.75rem;
-  border-bottom: 1px solid #eee;
+  align-items: center; /* Alinha verticalmente os itens da lista */
+  padding: 1rem 0.5rem; /* Mais padding vertical */
+  border-bottom: 1px solid #f0f0f0; /* Borda mais suave */
+  transition: background-color 0.2s ease;
+}
+
+.history-list li:hover {
+  background-color: #f9f9f9; /* Fundo sutil no hover */
 }
 
 .history-list li:last-child {
@@ -97,12 +131,14 @@ main h2 {
 }
 
 .history-list li span {
-  flex-basis: 22%; /* Divide o espaço entre os itens */
+  flex-basis: 22%;
   text-align: left;
+  font-size: 0.95em;
 }
 
 .history-list li .timestamp {
   color: #888;
   text-align: right;
   font-style: italic;
+  font-size: 0.9em;
 }

@@ -25,10 +25,10 @@ function App() {
 
   // Estado para os painéis principais: armazena o último dado de cada região
   const [latestData, setLatestData] = useState<LatestDataState>({
-    Norte: null,
-    Sul: null,
-    Leste: null,
-    Oeste: null,
+    norte: null,
+    sul: null,
+    leste: null,
+    oeste: null,
   });
 
   // Estado para a lista de histórico: armazena as últimas 7 mensagens
