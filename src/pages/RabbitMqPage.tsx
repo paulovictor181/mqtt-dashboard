@@ -262,7 +262,7 @@ const RabbitMqPage = () => {
 
   useEffect(() => {
     const stompClient = new Client({
-      brokerURL: "ws://localhost:15674/ws",
+      brokerURL: "ws://31.97.87.205:15674/ws",
       connectHeaders: {
         login: "guest",
         passcode: "guest",
