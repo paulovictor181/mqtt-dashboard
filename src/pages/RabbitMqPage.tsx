@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Client } from "@stomp/stompjs";
 import "../App.css";
 
@@ -72,20 +72,30 @@ const RabbitMqPage = () => {
 
   // Novos estados para estatísticas
   const [totalColetado, setTotalColetado] = useState<number | null>(null);
-  const [totalPorRegiao, setTotalPorRegiao] = useState<Record<string, number>>({});
+  const [totalPorRegiao, setTotalPorRegiao] = useState<Record<string, number>>(
+    {}
+  );
   const [loadingStats, setLoadingStats] = useState(true);
   const [errorStats, setErrorStats] = useState<string | null>(null);
   const [loadingTotal, setLoadingTotal] = useState(true);
   const [errorTotal, setErrorTotal] = useState<string | null>(null);
   const [loadingTotalPorRegiao, setLoadingTotalPorRegiao] = useState(true);
-  const [errorTotalPorRegiao, setErrorTotalPorRegiao] = useState<string | null>(null);
+  const [errorTotalPorRegiao, setErrorTotalPorRegiao] = useState<string | null>(
+    null
+  );
   const [loadingTotalPorElemento, setLoadingTotalPorElemento] = useState(true);
-  const [errorTotalPorElemento, setErrorTotalPorElemento] = useState<string | null>(null);
-  const [totalPorElemento, setTotalPorElemento] = useState<Record<string, number>>({});
+  const [errorTotalPorElemento, setErrorTotalPorElemento] = useState<
+    string | null
+  >(null);
+  const [totalPorElemento, setTotalPorElemento] = useState<
+    Record<string, number>
+  >({});
 
   // Estado para seleção do parâmetro
   const [parametro, setParametro] = useState("temperatura");
-  const [percentuais, setPercentuais] = useState<{ regiao: string; valor: number }[]>([]);
+  const [percentuais, setPercentuais] = useState<
+    { regiao: string; valor: number }[]
+  >([]);
   const [loadingPercentuais, setLoadingPercentuais] = useState(false);
   const [errorPercentuais, setErrorPercentuais] = useState<string | null>(null);
 
@@ -100,13 +110,18 @@ const RabbitMqPage = () => {
       regioes[regiao].push(msg[parametro as keyof DroneData] as number);
     });
     // Calcula a soma total de todos os valores
-    const total = Object.values(regioes).flat().reduce((acc, v) => acc + v, 0);
-    if (total === 0) return Object.entries(regioes).map(([regiao]) => ({ regiao, valor: 0 }));
+    const total = Object.values(regioes)
+      .flat()
+      .reduce((acc, v) => acc + v, 0);
+    if (total === 0)
+      return Object.entries(regioes).map(([regiao]) => ({ regiao, valor: 0 }));
     // Calcula o percentual de cada região
-    return Object.entries(regioes).map(([regiao, valores]) => ({
-      regiao,
-      valor: (valores.reduce((acc, v) => acc + v, 0) / total) * 100,
-    })).sort((a, b) => b.valor - a.valor);
+    return Object.entries(regioes)
+      .map(([regiao, valores]) => ({
+        regiao,
+        valor: (valores.reduce((acc, v) => acc + v, 0) / total) * 100,
+      }))
+      .sort((a, b) => b.valor - a.valor);
   }
 
   useEffect(() => {
@@ -141,9 +156,16 @@ const RabbitMqPage = () => {
           if (!res.ok) throw new Error("Erro ao buscar total");
           return res.json();
         })
-        .then((total) => { if (isMounted) setTotalColetado(total); })
-        .catch(() => { if (isMounted) setErrorTotal("Erro ao buscar total de dados coletados"); })
-        .finally(() => { if (isMounted) setLoadingTotal(false); });
+        .then((total) => {
+          if (isMounted) setTotalColetado(total);
+        })
+        .catch(() => {
+          if (isMounted)
+            setErrorTotal("Erro ao buscar total de dados coletados");
+        })
+        .finally(() => {
+          if (isMounted) setLoadingTotal(false);
+        });
     };
     fetchTotal();
     const interval = setInterval(fetchTotal, 3000);
@@ -163,9 +185,16 @@ const RabbitMqPage = () => {
           if (!res.ok) throw new Error("Erro ao buscar total por região");
           return res.json();
         })
-        .then((data) => { if (isMounted) setTotalPorRegiao(data); })
-        .catch(() => { if (isMounted) setErrorTotalPorRegiao("Erro ao buscar total por região"); })
-        .finally(() => { if (isMounted) setLoadingTotalPorRegiao(false); });
+        .then((data) => {
+          if (isMounted) setTotalPorRegiao(data);
+        })
+        .catch(() => {
+          if (isMounted)
+            setErrorTotalPorRegiao("Erro ao buscar total por região");
+        })
+        .finally(() => {
+          if (isMounted) setLoadingTotalPorRegiao(false);
+        });
     };
     fetchTotalPorRegiao();
     const interval = setInterval(fetchTotalPorRegiao, 3000);
@@ -182,12 +211,22 @@ const RabbitMqPage = () => {
     const fetchTotalPorElemento = () => {
       fetch("/api/estatisticas/total-por-elemento-climatico")
         .then((res) => {
-          if (!res.ok) throw new Error("Erro ao buscar total por elemento climático");
+          if (!res.ok)
+            throw new Error("Erro ao buscar total por elemento climático");
           return res.json();
         })
-        .then((data) => { if (isMounted) setTotalPorElemento(data); })
-        .catch(() => { if (isMounted) setErrorTotalPorElemento("Erro ao buscar total por elemento climático"); })
-        .finally(() => { if (isMounted) setLoadingTotalPorElemento(false); });
+        .then((data) => {
+          if (isMounted) setTotalPorElemento(data);
+        })
+        .catch(() => {
+          if (isMounted)
+            setErrorTotalPorElemento(
+              "Erro ao buscar total por elemento climático"
+            );
+        })
+        .finally(() => {
+          if (isMounted) setLoadingTotalPorElemento(false);
+        });
     };
     fetchTotalPorElemento();
     const interval = setInterval(fetchTotalPorElemento, 3000);
@@ -204,7 +243,9 @@ const RabbitMqPage = () => {
       setErrorPercentuais(null);
       try {
         // Exemplo de endpoint: /api/estatisticas/percentual?parametro=temperatura
-        const res = await fetch(`/api/estatisticas/percentual?parametro=${parametro}`);
+        const res = await fetch(
+          `/api/estatisticas/percentual?parametro=${parametro}`
+        );
         if (!res.ok) throw new Error("Erro ao buscar percentuais");
         const data = await res.json();
         // Esperado: [{ regiao: "norte", valor: 35.2 }, ...]
@@ -266,9 +307,11 @@ const RabbitMqPage = () => {
           {loadingTotal ? (
             <p>Carregando...</p>
           ) : errorTotal ? (
-            <p style={{ color: 'red' }}>{errorTotal}</p>
+            <p style={{ color: "red" }}>{errorTotal}</p>
           ) : (
-            <p style={{ fontSize: '1.5rem', fontWeight: 600 }}>{totalColetado}</p>
+            <p style={{ fontSize: "1.5rem", fontWeight: 600 }}>
+              {totalColetado}
+            </p>
           )}
         </div>
         {/* Total de dados coletados por região */}
@@ -277,12 +320,30 @@ const RabbitMqPage = () => {
           {loadingTotalPorRegiao ? (
             <p>Carregando...</p>
           ) : errorTotalPorRegiao ? (
-            <p style={{ color: 'red' }}>{errorTotalPorRegiao}</p>
+            <p style={{ color: "red" }}>{errorTotalPorRegiao}</p>
           ) : (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "2rem",
+                flexWrap: "wrap",
+              }}
+            >
               {Object.entries(totalPorRegiao).map(([regiao, valor]) => (
-                <div key={regiao} style={{ background: '#f5f5f5', borderRadius: 8, padding: '1rem 2rem', minWidth: 100 }}>
-                  <strong>{regiao.charAt(0).toUpperCase() + regiao.slice(1)}:</strong> {valor}
+                <div
+                  key={regiao}
+                  style={{
+                    background: "#f5f5f5",
+                    borderRadius: 8,
+                    padding: "1rem 2rem",
+                    minWidth: 100,
+                  }}
+                >
+                  <strong>
+                    {regiao.charAt(0).toUpperCase() + regiao.slice(1)}:
+                  </strong>{" "}
+                  {valor}
                 </div>
               ))}
             </div>
@@ -294,41 +355,81 @@ const RabbitMqPage = () => {
           {loadingTotal ? (
             <p>Carregando...</p>
           ) : errorTotal ? (
-            <p style={{ color: 'red' }}>{errorTotal}</p>
+            <p style={{ color: "red" }}>{errorTotal}</p>
           ) : (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
-              {["Temperatura", "Umidade", "Pressao", "Radiacao"].map((elemento) => (
-                <div key={elemento} style={{ background: '#f5f5f5', borderRadius: 8, padding: '1rem 2rem', minWidth: 120 }}>
-                  <strong>{elemento}:</strong> {totalColetado}
-                </div>
-              ))}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "2rem",
+                flexWrap: "wrap",
+              }}
+            >
+              {["Temperatura", "Umidade", "Pressao", "Radiacao"].map(
+                (elemento) => (
+                  <div
+                    key={elemento}
+                    style={{
+                      background: "#f5f5f5",
+                      borderRadius: 8,
+                      padding: "1rem 2rem",
+                      minWidth: 120,
+                    }}
+                  >
+                    <strong>{elemento}:</strong> {totalColetado}
+                  </div>
+                )
+              )}
             </div>
           )}
         </div>
         {/* Seletor de parâmetro */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <label htmlFor="parametro-select"><strong>Escolha o parâmetro:</strong> </label>
+          <label htmlFor="parametro-select">
+            <strong>Escolha o parâmetro:</strong>{" "}
+          </label>
           <select
             id="parametro-select"
             value={parametro}
-            onChange={e => setParametro(e.target.value)}
-            style={{ fontSize: "1rem", padding: "0.5rem 1rem", borderRadius: 6, marginLeft: 8 }}
+            onChange={(e) => setParametro(e.target.value)}
+            style={{
+              fontSize: "1rem",
+              padding: "0.5rem 1rem",
+              borderRadius: 6,
+              marginLeft: 8,
+            }}
           >
-            {parametros.map(p => (
-              <option key={p.value} value={p.value}>{p.label}</option>
+            {parametros.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
             ))}
           </select>
         </div>
         {/* Lista de percentuais */}
-        <div style={{ maxWidth: 500, margin: "0 auto 2rem auto", background: "#f5f5f5", borderRadius: 10, padding: "1.5rem 2rem" }}>
-          <h3 style={{ marginBottom: 16 }}>Percentual por região ({parametros.find(p => p.value === parametro)?.label})</h3>
+        <div
+          style={{
+            maxWidth: 500,
+            margin: "0 auto 2rem auto",
+            background: "#f5f5f5",
+            borderRadius: 10,
+            padding: "1.5rem 2rem",
+          }}
+        >
+          <h3 style={{ marginBottom: 16 }}>
+            Percentual por região (
+            {parametros.find((p) => p.value === parametro)?.label})
+          </h3>
           {rabbitMqHistory.length === 0 ? (
             <p>Nenhum dado disponível.</p>
           ) : (
             <ul style={{ listStyle: "none", padding: 0 }}>
               {calcularPercentuais(parametro).map(({ regiao, valor }) => (
                 <li key={regiao} style={{ marginBottom: 10 }}>
-                  <strong>{regiao.charAt(0).toUpperCase() + regiao.slice(1)}:</strong> {valor.toFixed(2)}%
+                  <strong>
+                    {regiao.charAt(0).toUpperCase() + regiao.slice(1)}:
+                  </strong>{" "}
+                  {valor.toFixed(2)}%
                 </li>
               ))}
             </ul>
