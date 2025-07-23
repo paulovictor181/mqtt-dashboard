@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
-import { Client } from "@stomp/stompjs";
 import "../App.css";
 
-// A interface não precisa mais da propriedade 'source'
 interface DroneData {
   id: number;
   pressao: number;
@@ -14,11 +12,7 @@ interface DroneData {
   posicao: string;
 }
 
-type LatestDataState = {
-  [key: string]: DroneData | null;
-};
-
-// Componente reutilizável para o Histórico para evitar repetição de código
+// Componente reutilizável para o Histórico (sem alterações)
 const HistoryList = ({
   title,
   history,
@@ -67,16 +61,13 @@ const parametros = [
 ];
 
 const RabbitMqPage = () => {
-  const [connectionStatus, setConnectionStatus] = useState("Desconectado");
   const [rabbitMqHistory, setRabbitMqHistory] = useState<DroneData[]>([]);
 
-  // Novos estados para estatísticas
+  // Estados para estatísticas (sem alterações)
   const [totalColetado, setTotalColetado] = useState<number | null>(null);
   const [totalPorRegiao, setTotalPorRegiao] = useState<Record<string, number>>(
     {}
   );
-  const [loadingStats, setLoadingStats] = useState(true);
-  const [errorStats, setErrorStats] = useState<string | null>(null);
   const [loadingTotal, setLoadingTotal] = useState(true);
   const [errorTotal, setErrorTotal] = useState<string | null>(null);
   const [loadingTotalPorRegiao, setLoadingTotalPorRegiao] = useState(true);
@@ -90,8 +81,6 @@ const RabbitMqPage = () => {
   const [totalPorElemento, setTotalPorElemento] = useState<
     Record<string, number>
   >({});
-
-  // Estado para seleção do parâmetro
   const [parametro, setParametro] = useState("temperatura");
   const [percentuais, setPercentuais] = useState<
     { regiao: string; valor: number }[]
@@ -99,23 +88,20 @@ const RabbitMqPage = () => {
   const [loadingPercentuais, setLoadingPercentuais] = useState(false);
   const [errorPercentuais, setErrorPercentuais] = useState<string | null>(null);
 
-  // Função para calcular percentuais por região a partir do histórico local
+  // Função para calcular percentuais (sem alterações)
   function calcularPercentuais(parametro: string) {
     if (rabbitMqHistory.length === 0) return [];
-    // Agrupa por região
     const regioes: Record<string, number[]> = {};
     rabbitMqHistory.forEach((msg) => {
       const regiao = msg.posicao.toLowerCase();
       if (!regioes[regiao]) regioes[regiao] = [];
       regioes[regiao].push(msg[parametro as keyof DroneData] as number);
     });
-    // Calcula a soma total de todos os valores
     const total = Object.values(regioes)
       .flat()
       .reduce((acc, v) => acc + v, 0);
     if (total === 0)
       return Object.entries(regioes).map(([regiao]) => ({ regiao, valor: 0 }));
-    // Calcula o percentual de cada região
     return Object.entries(regioes)
       .map(([regiao, valores]) => ({
         regiao,
@@ -125,25 +111,35 @@ const RabbitMqPage = () => {
   }
 
   useEffect(() => {
-    // Buscar estatísticas ao montar o componente
-    const fetchStats = async () => {
-      setLoadingStats(true);
-      setErrorStats(null);
-      try {
-        const resTotal = await fetch("/api/estatisticas/total-coletado");
-        const total = await resTotal.json();
-        setTotalColetado(total);
-
-        const resPorRegiao = await fetch("/api/estatisticas/total-por-regiao");
-        const porRegiao = await resPorRegiao.json();
-        setTotalPorRegiao(porRegiao);
-      } catch (err) {
-        setErrorStats("Erro ao buscar estatísticas");
-      } finally {
-        setLoadingStats(false);
-      }
+    let isMounted = true;
+    const fetchHistory = () => {
+      fetch("/api/drones/status")
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error("Erro ao buscar histórico");
+          }
+          return res.json();
+        })
+        .then((data: DroneData[]) => {
+          if (isMounted) {
+            const formattedData = data
+              .map((d) => ({ ...d, id: d.id || Date.now() + Math.random() }))
+              .sort((a, b) => b.id - a.id);
+            setRabbitMqHistory(formattedData);
+          }
+        })
+        .catch((error) => {
+          console.error("Falha ao buscar histórico de drones:", error);
+        });
     };
-    fetchStats();
+
+    fetchHistory();
+    const interval = setInterval(fetchHistory, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
@@ -236,19 +232,16 @@ const RabbitMqPage = () => {
     };
   }, []);
 
-  // Buscar percentuais do parâmetro selecionado
   useEffect(() => {
     const fetchPercentuais = async () => {
       setLoadingPercentuais(true);
       setErrorPercentuais(null);
       try {
-        // Exemplo de endpoint: /api/estatisticas/percentual?parametro=temperatura
         const res = await fetch(
           `/api/estatisticas/percentual?parametro=${parametro}`
         );
         if (!res.ok) throw new Error("Erro ao buscar percentuais");
         const data = await res.json();
-        // Esperado: [{ regiao: "norte", valor: 35.2 }, ...]
         setPercentuais(data);
       } catch (err) {
         setErrorPercentuais("Erro ao buscar percentuais");
@@ -260,50 +253,15 @@ const RabbitMqPage = () => {
     fetchPercentuais();
   }, [parametro]);
 
-  useEffect(() => {
-    const stompClient = new Client({
-      brokerURL: "ws://31.97.87.205:15674/ws",
-      connectHeaders: {
-        login: "guest",
-        passcode: "guest",
-      },
-      debug: function (str) {
-        console.log(str);
-      },
-      reconnectDelay: 5000,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
-    });
-
-    stompClient.onConnect = (frame) => {
-      stompClient.subscribe("/exchange/amq.fanout/dadosClima", (message) => {
-        const messageData = JSON.parse(message.body);
-        const newMessage: DroneData = { id: Date.now(), ...messageData };
-        setRabbitMqHistory((prev) => [newMessage, ...prev].slice(0, 60));
-      });
-    };
-
-    stompClient.onStompError = (frame) => {
-      setConnectionStatus("Erro na conexão");
-    };
-
-    stompClient.activate();
-
-    return () => {
-      stompClient.deactivate();
-    };
-  }, []);
-
   return (
     <div className="App">
       <header className="App-header">
-        <h1>Dashboard de Drones - RabbitMQ</h1>
-        {/* Removido o status de conexão */}
+        <h1>Dashboard de Drones - Dados Históricos RabbitMQ</h1>
       </header>
       <main>
         {/* Total de dados coletados */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <h2>Total de dados coletados</h2>
+          <h2 style={{ textAlign: 'center' }}>Total de dados coletados</h2>
           {loadingTotal ? (
             <p>Carregando...</p>
           ) : errorTotal ? (
@@ -316,7 +274,7 @@ const RabbitMqPage = () => {
         </div>
         {/* Total de dados coletados por região */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <h2>Total por região</h2>
+          <h2 style={{ textAlign: 'center' }}>Total por região</h2>
           {loadingTotalPorRegiao ? (
             <p>Carregando...</p>
           ) : errorTotalPorRegiao ? (
@@ -351,7 +309,7 @@ const RabbitMqPage = () => {
         </div>
         {/* Total de dados coletados por elemento climático */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <h2>Total por elemento climático</h2>
+          <h2 style={{ textAlign: 'center' }}>Total por elemento climático</h2>
           {loadingTotal ? (
             <p>Carregando...</p>
           ) : errorTotal ? (
@@ -435,7 +393,7 @@ const RabbitMqPage = () => {
             </ul>
           )}
         </div>
-        <HistoryList title="Histórico RabbitMQ" history={rabbitMqHistory} />
+        <HistoryList title="Histórico" history={rabbitMqHistory} />
       </main>
     </div>
   );
